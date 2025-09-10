@@ -7,8 +7,9 @@ import api.interfaces.http.HttpResponse;
 public class NotFoundHandler implements IHttpHandler {
     @Override
     public void handle(HttpRequest req, HttpResponse res) {
-        res.status(404, "Not Found");
+        // assignment simplification: any other method => 400
+        res.status(400, "Bad Request");
         res.header("Content-Type", "application/json; charset=utf-8");
-        res.body("{\"error\":\"no route for " + req.method() + " " + req.path() + "\"}");
+        res.body("{\"error\":\"only GET and PUT are supported\"}");
     }
 }

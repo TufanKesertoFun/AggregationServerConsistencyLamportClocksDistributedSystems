@@ -1,0 +1,30 @@
+# ===== Build output (Maven) =====
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# ===== IDE files =====
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+
+# Eclipse/NetBeans (just in case)
+.classpath
+.project
+.settings/
+.nb-gradle/
+nbbuild/
+dist/
+build/
+
+# ===== OS cruft =====
+.DS_Store
+Thumbs.db
+
+# ===== App snapshots =====
+# keep folder, ignore files; commit a .gitkeep so folder exists
+src/main/resources/temp/*
+!src/main/resources/temp/.gitkeep

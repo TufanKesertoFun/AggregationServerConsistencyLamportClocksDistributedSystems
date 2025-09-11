@@ -1,8 +1,12 @@
 package org.example.client;
 
-import com.google.gson.JsonObject;  // only for building JSON
+import com.google.gson.Gson;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -12,108 +16,109 @@ import java.util.Map;
 
 public final class ContentServer {
 
-    private static final String USER_AGENT = "ATOMClient/1/0";
-
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
-            System.out.println("Usage: ContentServer <host:port> <relative-or-absolute-file-path>");
-            System.out.println("Example: ContentServer localhost:4567 src/main/resources/weather.txt");
+            System.out.println("Usage:\n  ContentServer <host:port | http://host:port[/path]> <filePath>");
             return;
         }
 
-        // --- 1) Parse CLI ---
-        String[] hp = args[0].split(":");
-        String host = hp[0];
-        int port = (hp.length > 1) ? Integer.parseInt(hp[1]) : 4567;
-        Path filePath = Path.of(args[1]);
+        String urlOrHostPort = args[0];
+        String filePath = args[1];
 
-        // --- 2) Load key:value pairs and build JSON payload ---
-        Map<String, String> fields = loadKeyValues(filePath);
-        String json = buildJson(fields);
-        byte[] body = json.getBytes(StandardCharsets.UTF_8);
+        // Parse host, port, and path (default /weather.json)
+        String hostPort = urlOrHostPort.replaceFirst("^https?://", "");
+        String host = parseHost(hostPort);
+        int port = parsePort(hostPort, 4567);
+        String path = parsePath(hostPort, "/weather.json");
+        if (!path.startsWith("/")) path = "/" + path;
 
-        // --- 3) PUT /weather.json ---
-        String putStatus = sendPut(host, port, "/weather.json", body);
-        System.out.println("[PUT] " + putStatus);
-    }
+        // Build request body: accept either JSON file OR key:value text file
+        byte[] bodyBytes = buildBody(Path.of(filePath));
+        int contentLength = bodyBytes.length;
 
-    /** station file parser: lines like `id: IDS60901` (ignores blank lines and # comments) */
-    private static Map<String, String> loadKeyValues(Path file) throws IOException {
-        Map<String, String> map = new LinkedHashMap<>();
-        try (BufferedReader br = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            String line; int ln = 0;
-            while ((line = br.readLine()) != null) {
-                ln++;
-                line = line.trim();
-                if (line.isEmpty() || line.startsWith("#")) continue;
+        String headers =
+                "PUT " + path + " HTTP/1.1\r\n" +
+                        "Host: " + host + ":" + port + "\r\n" +
+                        "User-Agent: ContentServer/1.0\r\n" +
+                        "Content-Type: application/json; charset=utf-8\r\n" +
+                        "Content-Length: " + contentLength + "\r\n" +
+                        "Connection: close\r\n\r\n";
 
-                int idx = line.indexOf(':');
-                if (idx < 0) idx = line.indexOf('='); // allow key=value too
-                if (idx < 0) throw new IllegalArgumentException("Bad line " + ln + ": " + line + " (expected key:value)");
+        System.out.println("Request sent:");
+        System.out.print(headers.replace("\r\n", "\n"));
+        System.out.println(contentLength == 0 ? "(empty body)" : "(body bytes): " + contentLength);
 
-                String key = line.substring(0, idx).trim();
-                String val = line.substring(idx + 1).trim();
+        try (Socket s = new Socket(host, port);
+             OutputStream out = s.getOutputStream();
+             InputStream in = s.getInputStream()) {
 
-                // strip optional wrapping quotes
-                if (val.length() >= 2 && (
-                        (val.startsWith("\"") && val.endsWith("\"")) ||
-                                (val.startsWith("'") && val.endsWith("'")))) {
-                    val = val.substring(1, val.length() - 1);
-                }
-                map.put(key, val);
-            }
-        }
-        return map;
-    }
-
-    /** Build JSON. Tries to coerce numbers/booleans if they look like them; otherwise keeps strings. */
-    private static String buildJson(Map<String, String> fields) {
-        JsonObject obj = new JsonObject();
-        for (Map.Entry<String, String> e : fields.entrySet()) {
-            String k = e.getKey();
-            String v = e.getValue();
-
-            if (v.equalsIgnoreCase("true") || v.equalsIgnoreCase("false")) {
-                obj.addProperty(k, Boolean.parseBoolean(v));
-            } else if (v.matches("-?\\d+")) {
-                try { obj.addProperty(k, Long.parseLong(v)); }
-                catch (NumberFormatException ex) { obj.addProperty(k, v); }
-            } else if (v.matches("-?\\d+\\.\\d+")) {
-                try { obj.addProperty(k, Double.parseDouble(v)); }
-                catch (NumberFormatException ex) { obj.addProperty(k, v); }
-            } else {
-                obj.addProperty(k, v);
-            }
-        }
-        return obj.toString();
-    }
-
-    /** Send the PUT and return the HTTP status line. */
-    private static String sendPut(String host, int port, String path, byte[] body) throws IOException {
-        try (Socket sock = new Socket(host, port);
-             OutputStream out = sock.getOutputStream();
-             InputStream in = sock.getInputStream()) {
-
-            String req =
-                    "PUT " + path + " HTTP/1.1\r\n" +
-                            "Host: " + host + ":" + port + "\r\n" +
-                            "User-Agent: " + USER_AGENT + "\r\n" +
-                            "Content-Type: application/json; charset=UTF-8\r\n" +
-                            "Content-Length: " + body.length + "\r\n" +
-                            "Connection: close\r\n\r\n";
-
-            out.write(req.getBytes(StandardCharsets.UTF_8));
-            out.write(body);
+            out.write(headers.getBytes(StandardCharsets.UTF_8));
+            if (contentLength > 0) out.write(bodyBytes);
             out.flush();
 
-            return readStatusLine(in);
+            String resp = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            String statusLine = firstLine(resp);
+            String body = bodyOf(resp);
+
+            System.out.println("\nServer Response:");
+            System.out.println(statusLine);
+            if (!body.isBlank()) System.out.println(body);
         }
     }
 
-    /** Read only the status line from the HTTP response. */
-    private static String readStatusLine(InputStream in) throws IOException {
-        String resp = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        int sep = resp.indexOf("\r\n");
-        return (sep > 0) ? resp.substring(0, sep) : resp;
+    /* ---------------- helpers ---------------- */
+
+    private static byte[] buildBody(Path file) throws IOException {
+        if (!Files.exists(file)) throw new FileNotFoundException("File not found: " + file);
+
+        byte[] raw = Files.readAllBytes(file);
+        if (raw.length == 0) return raw; // empty file -> 204 on server
+
+        String text = new String(raw, StandardCharsets.UTF_8).trim();
+        // If it already looks like JSON, send as-is
+        if (text.startsWith("{")) return text.getBytes(StandardCharsets.UTF_8);
+
+        // Else assume key:value lines -> convert to JSON
+        Map<String, String> map = new LinkedHashMap<>();
+        try (BufferedReader br = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                int idx = line.indexOf(':');
+                if (idx < 0) continue;
+                String key = line.substring(0, idx).trim();
+                String val = line.substring(idx + 1).trim();
+                if (!key.isEmpty()) map.put(key, val);
+            }
+        }
+        String json = new Gson().toJson(map);
+        return json.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String parseHost(String hostPort) {
+        String hp = hostPort.contains("/") ? hostPort.substring(0, hostPort.indexOf('/')) : hostPort;
+        int i = hp.indexOf(':');
+        return (i >= 0) ? hp.substring(0, i) : hp;
+    }
+
+    private static int parsePort(String hostPort, int def) {
+        String hp = hostPort.contains("/") ? hostPort.substring(0, hostPort.indexOf('/')) : hostPort;
+        int i = hp.indexOf(':');
+        if (i >= 0) { try { return Integer.parseInt(hp.substring(i + 1)); } catch (Exception ignored) {} }
+        return def;
+    }
+
+    private static String parsePath(String hostPort, String def) {
+        int i = hostPort.indexOf('/');
+        return (i >= 0) ? hostPort.substring(i) : def;
+    }
+
+    private static String firstLine(String http) {
+        int i = http.indexOf("\r\n");
+        return (i >= 0) ? http.substring(0, i) : http;
+    }
+
+    private static String bodyOf(String resp) {
+        int i = resp.indexOf("\r\n\r\n");
+        return (i >= 0) ? resp.substring(i + 4) : "";
     }
 }

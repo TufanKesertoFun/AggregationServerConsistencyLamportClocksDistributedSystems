@@ -3,6 +3,9 @@ package org.example.server;
 import org.example.persistance.FileSnapshotStore;
 import org.example.interfaces.SnapshotStore;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -49,9 +52,18 @@ public final class AggregationServer {
             if ("PUT".equals(method) && "/weather.json".equals(path)) {
                 if (contentLength <= 0) { writeEmpty(out, 204); return; }
                 byte[] body = readBody(in, contentLength);
+                String json = new String(body, StandardCharsets.UTF_8);
+
+                // Minimal validation for 500 on invalid JSON / missing id
+                try {
+                    validateJsonOrThrow(json);
+                } catch (Exception e) {
+                    writeJson(out, 500, "{\"error\":\"invalid JSON or missing id\"}");
+                    return;
+                }
 
                 boolean first = (lastPayload == null || lastPayload.isBlank());
-                lastPayload = new String(body, StandardCharsets.UTF_8);
+                lastPayload = json;
                 STORE.save(lastPayload);
 
                 writeEmpty(out, first ? 201 : 200); // 201 first time, then 200
@@ -71,14 +83,26 @@ public final class AggregationServer {
                 return;
             }
 
-            // optionally keep your /health elsewhere; fall through if unknown
+            // any other request → 400 (per spec simplification)
             writeEmpty(out, 400);
         } catch (Exception ignore) {
             // keep server alive
         }
     }
 
-    /* -------------------- tiny helpers (private, single-purpose) -------------------- */
+    /* -------- tiny JSON validator for PUT -------- */
+    private static void validateJsonOrThrow(String json) throws Exception {
+        var element = JsonParser.parseString(json);
+        if (!element.isJsonObject()) throw new IllegalArgumentException("not a JSON object");
+        JsonObject obj = element.getAsJsonObject();
+
+        if (!obj.has("id")) throw new IllegalArgumentException("missing id");
+        if (obj.get("id").isJsonNull()) throw new IllegalArgumentException("null id");
+        String id = obj.get("id").getAsString();
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("blank id");
+    }
+
+    /* -------------------- helpers -------------------- */
 
     /** Read request headers until CRLFCRLF and return lines. */
     private static String[] readHeaderLines(InputStream in) throws IOException {

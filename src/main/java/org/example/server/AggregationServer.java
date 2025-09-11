@@ -1,4 +1,7 @@
-package org.example;
+package org.example.server;
+
+import org.example.persistance.FileSnapshotStore;
+import org.example.interfaces.SnapshotStore;
 
 import java.io.*;
 import java.net.ServerSocket;
@@ -6,12 +9,11 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 
 public final class AggregationServer {
-    // keep the last payload in memory
-    private static volatile String lastPayload = "{\"status\":\"alive\"}";
+    // keep the last payload in memory (start empty)
+    private static volatile String lastPayload = null;
 
     private static final SnapshotStore STORE =
             new FileSnapshotStore(java.nio.file.Paths.get("src","main","resources","temp"), "weather");
-
 
     public static void main(String[] args) throws Exception {
         int port = (args.length > 0) ? Integer.parseInt(args[0]) : 4567;
@@ -43,20 +45,33 @@ public final class AggregationServer {
 
             int contentLength = contentLengthFrom(headerLines);
 
+            // PUT /weather.json
             if ("PUT".equals(method) && "/weather.json".equals(path)) {
                 if (contentLength <= 0) { writeEmpty(out, 204); return; }
                 byte[] body = readBody(in, contentLength);
+
+                boolean first = (lastPayload == null || lastPayload.isBlank());
                 lastPayload = new String(body, StandardCharsets.UTF_8);
                 STORE.save(lastPayload);
-                writeEmpty(out, 201); // minimal behaviour you already had
+
+                writeEmpty(out, first ? 201 : 200); // 201 first time, then 200
                 return;
             }
 
+            // GET /weather.json
             if ("GET".equals(method) && "/weather.json".equals(path)) {
-                writeJson(out, 200, lastPayload);
+                if (lastPayload == null || lastPayload.isBlank()) {
+                    byte[] b = "{\"error\":\"no weather data available\"}".getBytes(StandardCharsets.UTF_8);
+                    out.write(("HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\nContent-Length: "
+                            + b.length + "\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+                    out.write(b);
+                } else {
+                    writeJson(out, 200, lastPayload);
+                }
                 return;
             }
 
+            // optionally keep your /health elsewhere; fall through if unknown
             writeEmpty(out, 400);
         } catch (Exception ignore) {
             // keep server alive
@@ -127,6 +142,7 @@ public final class AggregationServer {
             case 201 -> "Created";
             case 204 -> "No Content";
             case 400 -> "Bad Request";
+            case 404 -> "Not Found";
             case 500 -> "Internal Server Error";
             default -> "OK";
         };

@@ -1,4 +1,4 @@
-package org.example;
+package org.example.client;
 
 import com.google.gson.JsonObject;  // only for building JSON
 
@@ -17,7 +17,7 @@ public final class ContentServer {
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
             System.out.println("Usage: ContentServer <host:port> <relative-or-absolute-file-path>");
-            System.out.println("Example: ContentServer localhost:4567 src/main/resources/station1.txt");
+            System.out.println("Example: ContentServer localhost:4567 src/main/resources/weather.txt");
             return;
         }
 

@@ -5,8 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="022bfaed-8cc2-4a0e-a84e-a19f5ce36733" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/GetClient.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/GetClient.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/AggregationServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ContentServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/FileSnapshotStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/persistance/FileSnapshotStore.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/GetClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/SnapshotStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/SnapshotStore.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/station1.txt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/weather.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/temp/.gitkeep" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -70,7 +77,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1757568990628</updated>
-      <workItem from="1757568991706" duration="13545000" />
+      <workItem from="1757568991706" duration="19434000" />
     </task>
     <servers />
   </component>

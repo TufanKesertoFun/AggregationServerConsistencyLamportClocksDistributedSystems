@@ -1,4 +1,6 @@
-package org.example;
+package org.example.persistance;
+
+import org.example.interfaces.SnapshotStore;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

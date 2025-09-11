@@ -1,4 +1,4 @@
-package org.example;
+package org.example.client;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -11,8 +11,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public final class GetClient {
+public final class GetClient implements org.example.interfaces.GetClient {
+
     private static final Gson GSON = new Gson();
+
     private static final Gson PRETTY = new GsonBuilder()
             .setPrettyPrinting()
             .disableHtmlEscaping()
@@ -25,38 +27,46 @@ public final class GetClient {
             return;
         }
 
-        String hostPort = args[0].replace("http://", "");
+        String urlOrHostPort = args[0];
+        String pathOrNull = (args.length >= 2) ? args[1] : null;
+
+        String pretty = new GetClient().fetch(urlOrHostPort, pathOrNull);
+        if (!pretty.isEmpty()) {
+            System.out.println("\nServer Response:");
+            System.out.println(pretty);
+        }
+    }
+
+    @Override
+    public String fetch(String urlOrHostPort, String pathOrNull) throws Exception {
+        // strip http:// or https:// if user passed it
+        String hostPort = urlOrHostPort.replaceFirst("^https?://", "");
         String host = parseHost(hostPort);
         int port = parsePort(hostPort, 4567);
-        String path = (args.length >= 2) ? args[1] : parsePath(hostPort, "/weather.json"); // default path
+        String path = (pathOrNull != null) ? pathOrNull : parsePath(hostPort, "/weather.json");
+        if (path != null && !path.startsWith("/")) path = "/" + path;
 
         try (Socket s = new Socket(host, port);
              OutputStream out = s.getOutputStream();
              InputStream in = s.getInputStream()) {
 
-            // ---- build and show the request ----
             String req =
                     "GET " + path + " HTTP/1.1\r\n" +
                             "Host: " + host + ":" + port + "\r\n" +
                             "Connection: close\r\n\r\n";
+
             System.out.println("Request sent:");
             System.out.print(req.replace("\r\n", "\n"));
 
-            // ---- send ----
             out.write(req.getBytes(StandardCharsets.UTF_8));
             out.flush();
 
-            // ---- read full response ----
             String resp = new String(in.readAllBytes(), StandardCharsets.UTF_8);
             String body = bodyOf(resp);
 
-            // ---- print pretty JSON with ALL values quoted ----
-            System.out.println("\nServer Response:");
-            System.out.println(toPrettyAllStrings(body));
+            return toPrettyAllStrings(body);
         }
     }
-
-    /* ---------------- helpers ---------------- */
 
     private static String parseHost(String hostPort) {
         String hp = hostPort.contains("/") ? hostPort.substring(0, hostPort.indexOf('/')) : hostPort;
@@ -83,17 +93,22 @@ public final class GetClient {
         return (i >= 0) ? resp.substring(i + 4) : "";
     }
 
-    /** Convert JSON body to pretty JSON where every value is a string (so numbers show in quotes). */
     private static String toPrettyAllStrings(String jsonBody) {
-        // preserve key order by reading into LinkedHashMap
-        Map<String, Object> original =
-                GSON.fromJson(jsonBody, new TypeToken<LinkedHashMap<String, Object>>(){}.getType());
+        Map<String, Object> original = GSON.fromJson(
+                jsonBody,
+                new TypeToken<LinkedHashMap<String, Object>>(){}.getType()
+        );
+
         LinkedHashMap<String, String> asStrings = new LinkedHashMap<>();
+
         if (original != null) {
-            for (Map.Entry<String, Object> e : original.entrySet()) {
-                asStrings.put(e.getKey(), e.getValue() == null ? "null" : String.valueOf(e.getValue()));
+            for (String key : original.keySet()) {
+                Object value = original.get(key);
+                String valueAsText = (value == null) ? "null" : String.valueOf(value);
+                asStrings.put(key, valueAsText);
             }
         }
+
         return PRETTY.toJson(asStrings);
     }
 }

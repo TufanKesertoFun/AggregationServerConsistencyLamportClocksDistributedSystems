@@ -53,6 +53,12 @@ public final class GetClient implements org.example.interfaces.GetClient {
 
         CLOCK.tick();
         Map<String, String> extra = new LinkedHashMap<>();
+        // --- Lamport human-readable log before sending ---
+        System.out.println("[Lamport] GetClient sending request");
+        System.out.println("          Node ID: " + NODE_ID);
+        System.out.println("          Current Clock: " + CLOCK.get());
+
+
         extra.put("X-Lamport-Node", NODE_ID);
         extra.put("X-Lamport-Clock", String.valueOf(CLOCK.get()));
         extra.put("Connection", "close");
@@ -72,8 +78,18 @@ public final class GetClient implements org.example.interfaces.GetClient {
             // --- Lamport clock update ---
             String respClock = headerValue(resp, "X-Lamport-Clock");
             if (respClock != null) {
-                try { CLOCK.update(Long.parseLong(respClock)); } catch (Exception ignored) {}
+                try {
+                    long remote = Long.parseLong(respClock);
+                    long after = CLOCK.update(remote);
+
+                    // --- Lamport human-readable log after receiving ---
+                    System.out.println("[Lamport] GetClient received response");
+                    System.out.println("          Remote (Server) Clock: " + remote);
+                    System.out.println("          Updated Local Clock: " + after);
+                    // ---------------------------------------------------
+                } catch (Exception ignored) {}
             }
+
             // ----------------------------
 
             String statusLine = statusLineOf(resp);

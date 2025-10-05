@@ -13,10 +13,19 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
+import java.util.PriorityQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class AggregationServer {
 
+    // ---- state served to clients (volatile for cross-thread visibility) ----
     private static volatile String lastPayload = null;
+
+    // TTL via policy (30s). Keep lastAppliedAt updated when a PUT is applied.
+    private static final org.example.interfaces.ExpiryPolicy EXPIRY =
+            new org.example.util.FixedTtlPolicy(30_000L);
+    private static volatile long lastAppliedAt = 0L;
 
     private static final SnapshotStore STORE =
             new FileSnapshotStore(java.nio.file.Paths.get("src", "main", "resources", "temp"), "weather");
@@ -30,12 +39,56 @@ public final class AggregationServer {
     // HTTP helper (centralized response writing + reason + status constants)
     private static final HttpHandler HTTP = new DefaultHttpHandler();
 
+    // -----------------------------------------------------------------------
+    // Lamport-ordered apply queue
+    // -----------------------------------------------------------------------
+    private record Update(long lamportTs, String fromNode, String json, long seq) {}
+
+    private static final AtomicLong ARRIVAL_SEQ = new AtomicLong(0);
+
+    private static final PriorityQueue<Update> APPLY_Q = new PriorityQueue<>(
+            Comparator
+                    .comparingLong((Update u) -> u.lamportTs)
+                    .thenComparing(u -> u.fromNode == null ? "" : u.fromNode)
+                    .thenComparingLong(u -> u.seq)
+    );
+
+    static {
+        Thread applier = new Thread(() -> {
+            while (true) {
+                Update u;
+                synchronized (APPLY_Q) {
+                    while (APPLY_Q.isEmpty()) {
+                        try { APPLY_Q.wait(); } catch (InterruptedException ignored) {}
+                    }
+                    u = APPLY_Q.poll();
+                }
+                try {
+                    // Apply in order (single-threaded here)
+                    lastPayload = u.json;
+                    STORE.save(lastPayload);
+                    lastAppliedAt = System.currentTimeMillis(); // record apply time for TTL
+
+                    System.out.println("[Lamport-Apply] ts=" + u.lamportTs +
+                            " fromNode=" + (u.fromNode == null ? "?" : u.fromNode) +
+                            " seq=" + u.seq + " -> applied & snapshotted");
+                } catch (Exception e) {
+                    System.err.println("Apply failed: " + e.getMessage());
+                }
+            }
+        }, "lamport-applier");
+        applier.setDaemon(true);
+        applier.start();
+    }
+    // -----------------------------------------------------------------------
+
     public static void main(String[] args) throws Exception {
         int port = (args.length > 0) ? Integer.parseInt(args[0]) : 4567;
 
         String snap = STORE.load();
         if (snap != null && !snap.isBlank()) {
             lastPayload = snap;
+            lastAppliedAt = System.currentTimeMillis(); // treat restored snapshot as fresh now
             System.out.println("Restored snapshot from resources/temp/latest.json");
         }
 
@@ -61,6 +114,10 @@ public final class AggregationServer {
             long remoteLamport = parseLamportFromHeaders(headerLines);
             if (remoteLamport > 0) {
                 CLOCK.update(remoteLamport);
+
+                System.out.println("[Lamport] AggregationServer received request");
+                System.out.println("          Remote Clock: " + remoteLamport);
+                System.out.println("          Updated Local Clock: " + CLOCK.get());
             }
             // ---------------------------------------------------
 
@@ -92,10 +149,15 @@ public final class AggregationServer {
                     return;
                 }
 
-                boolean first = (lastPayload == null || lastPayload.isBlank());
-                lastPayload = json;
-                STORE.save(lastPayload);
+                String fromNode = parseHeaderValue(headerLines, "X-Lamport-Node");
+                long orderTs = (remoteLamport > 0) ? remoteLamport : CLOCK.get();
+                long seq = ARRIVAL_SEQ.incrementAndGet();
+                synchronized (APPLY_Q) {
+                    APPLY_Q.add(new Update(orderTs, fromNode, json, seq));
+                    APPLY_Q.notifyAll();
+                }
 
+                boolean first = (lastPayload == null || lastPayload.isBlank());
                 if (first) {
                     HTTP.writeEmpty(out, HttpHandler.CREATED, CLOCK, NODE_ID);
                 } else {
@@ -109,7 +171,15 @@ public final class AggregationServer {
                     HTTP.writeJson(out, HttpHandler.NOT_FOUND,
                             "{\"error\":\"no weather data available\"}", CLOCK, NODE_ID);
                 } else {
-                    HTTP.writeJson(out, HttpHandler.OK, lastPayload, CLOCK, NODE_ID);
+                    long now = System.currentTimeMillis();
+                    if (EXPIRY.isExpired(lastAppliedAt, now)) {
+                        long age = now - lastAppliedAt;
+                        System.out.println("[TTL] Data expired: ageMs=" + age + " > " + EXPIRY.ttlMs());
+                        HTTP.writeJson(out, HttpHandler.NOT_FOUND,
+                                "{\"error\":\"data expired\"}", CLOCK, NODE_ID);
+                    } else {
+                        HTTP.writeJson(out, HttpHandler.OK, lastPayload, CLOCK, NODE_ID);
+                    }
                 }
                 return;
             }
@@ -171,15 +241,12 @@ public final class AggregationServer {
 
     private static int contentLengthFrom(String[] headerLines) {
         for (String line : headerLines) {
-            if (line == null) {
-                continue;
-            }
+            if (line == null) continue;
             String lower = line.toLowerCase();
             if (lower.startsWith("content-length:")) {
                 try {
                     return Integer.parseInt(line.substring(15).trim());
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
             }
         }
         return 0;
@@ -191,20 +258,31 @@ public final class AggregationServer {
 
     private static long parseLamportFromHeaders(String[] headerLines) {
         for (String line : headerLines) {
-            if (line == null) {
-                continue;
-            }
+            if (line == null) continue;
             int i = line.indexOf(':');
             if (i > 0) {
                 String name = line.substring(0, i).trim();
                 if ("X-Lamport-Clock".equalsIgnoreCase(name)) {
                     try {
                         return Long.parseLong(line.substring(i + 1).trim());
-                    } catch (Exception ignored) {
-                    }
+                    } catch (Exception ignored) {}
                 }
             }
         }
         return 0L;
+    }
+
+    private static String parseHeaderValue(String[] headerLines, String wantedName) {
+        for (String line : headerLines) {
+            if (line == null) continue;
+            int i = line.indexOf(':');
+            if (i > 0) {
+                String name = line.substring(0, i).trim();
+                if (wantedName.equalsIgnoreCase(name)) {
+                    return line.substring(i + 1).trim();
+                }
+            }
+        }
+        return null;
     }
 }

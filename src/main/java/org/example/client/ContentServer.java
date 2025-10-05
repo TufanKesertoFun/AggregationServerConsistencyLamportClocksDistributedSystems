@@ -2,6 +2,9 @@ package org.example.client;
 
 import com.google.gson.Gson;
 
+import org.example.interfaces.HttpHandler;
+import org.example.http.DefaultHttpHandler;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -21,6 +24,9 @@ public final class ContentServer {
             new org.example.util.AtomicLamportClock();
     private static final String NODE_ID = "CS-1";
     // --------------------------
+
+    // HTTP handler (wire-level only)
+    private static final HttpHandler HTTP = new DefaultHttpHandler();
 
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
@@ -42,15 +48,13 @@ public final class ContentServer {
 
         // --- Lamport: tick before sending, include headers ---
         CLOCK.tick();
-        String headers =
-                "PUT " + path + " HTTP/1.1\r\n" +
-                        "Host: " + host + ":" + port + "\r\n" +
-                        "User-Agent: ContentServer/1.0\r\n" +
-                        "X-Lamport-Node: " + NODE_ID + "\r\n" +
-                        "X-Lamport-Clock: " + CLOCK.get() + "\r\n" +
-                        "Content-Type: application/json; charset=utf-8\r\n" +
-                        "Content-Length: " + contentLength + "\r\n" +
-                        "Connection: close\r\n\r\n";
+        Map<String, String> extra = new LinkedHashMap<>();
+        extra.put("User-Agent", "ContentServer/1.0");
+        extra.put("X-Lamport-Node", NODE_ID);
+        extra.put("X-Lamport-Clock", String.valueOf(CLOCK.get()));
+        extra.put("Content-Type", "application/json; charset=utf-8");
+
+        String headers = HTTP.buildRequest("PUT", path, host, port, extra, contentLength);
         // -----------------------------------------------------
 
         System.out.println("Request sent:");
@@ -61,11 +65,8 @@ public final class ContentServer {
              OutputStream out = s.getOutputStream();
              InputStream in = s.getInputStream()) {
 
-            out.write(headers.getBytes(StandardCharsets.UTF_8));
-            if (contentLength > 0) out.write(bodyBytes);
-            out.flush();
-
-            String resp = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            HTTP.send(out, headers, bodyBytes);
+            String resp = HTTP.readRawResponse(in);
 
             // --- Lamport: update from server’s clock (if present) ---
             String respClock = headerValue(resp, "X-Lamport-Clock");

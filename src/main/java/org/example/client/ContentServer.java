@@ -16,6 +16,12 @@ import java.util.Map;
 
 public final class ContentServer {
 
+    // --- Lamport additions ---
+    private static final org.example.interfaces.LamportClock CLOCK =
+            new org.example.util.AtomicLamportClock();
+    private static final String NODE_ID = "CS-1";
+    // --------------------------
+
     public static void main(String[] args) throws Exception {
         if (args.length < 2) {
             System.out.println("Usage:\n  ContentServer <host:port | http://host:port[/path]> <filePath>");
@@ -25,24 +31,27 @@ public final class ContentServer {
         String urlOrHostPort = args[0];
         String filePath = args[1];
 
-        // Parse host, port, and path (default /weather.json)
         String hostPort = urlOrHostPort.replaceFirst("^https?://", "");
         String host = parseHost(hostPort);
         int port = parsePort(hostPort, 4567);
         String path = parsePath(hostPort, "/weather.json");
         if (!path.startsWith("/")) path = "/" + path;
 
-        // Build request body: accept either JSON file OR key:value text file
         byte[] bodyBytes = buildBody(Path.of(filePath));
         int contentLength = bodyBytes.length;
 
+        // --- Lamport: tick before sending, include headers ---
+        CLOCK.tick();
         String headers =
                 "PUT " + path + " HTTP/1.1\r\n" +
                         "Host: " + host + ":" + port + "\r\n" +
                         "User-Agent: ContentServer/1.0\r\n" +
+                        "X-Lamport-Node: " + NODE_ID + "\r\n" +
+                        "X-Lamport-Clock: " + CLOCK.get() + "\r\n" +
                         "Content-Type: application/json; charset=utf-8\r\n" +
                         "Content-Length: " + contentLength + "\r\n" +
                         "Connection: close\r\n\r\n";
+        // -----------------------------------------------------
 
         System.out.println("Request sent:");
         System.out.print(headers.replace("\r\n", "\n"));
@@ -57,6 +66,14 @@ public final class ContentServer {
             out.flush();
 
             String resp = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+
+            // --- Lamport: update from server’s clock (if present) ---
+            String respClock = headerValue(resp, "X-Lamport-Clock");
+            if (respClock != null) {
+                try { CLOCK.update(Long.parseLong(respClock)); } catch (Exception ignored) {}
+            }
+            // --------------------------------------------------------
+
             String statusLine = firstLine(resp);
             String body = bodyOf(resp);
 
@@ -67,18 +84,25 @@ public final class ContentServer {
     }
 
     /* ---------------- helpers ---------------- */
+    private static String headerValue(String http, String name) {
+        int headEnd = http.indexOf("\r\n\r\n");
+        String headers = (headEnd >= 0) ? http.substring(0, headEnd) : http;
+        for (String line : headers.split("\r\n")) {
+            int i = line.indexOf(':');
+            if (i > 0 && line.substring(0, i).trim().equalsIgnoreCase(name)) {
+                return line.substring(i + 1).trim();
+            }
+        }
+        return null;
+    }
 
     private static byte[] buildBody(Path file) throws IOException {
         if (!Files.exists(file)) throw new FileNotFoundException("File not found: " + file);
-
         byte[] raw = Files.readAllBytes(file);
-        if (raw.length == 0) return raw; // empty file -> 204 on server
-
+        if (raw.length == 0) return raw;
         String text = new String(raw, StandardCharsets.UTF_8).trim();
-        // If it already looks like JSON, send as-is
         if (text.startsWith("{")) return text.getBytes(StandardCharsets.UTF_8);
 
-        // Else assume key:value lines -> convert to JSON
         Map<String, String> map = new LinkedHashMap<>();
         try (BufferedReader br = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             String line;
@@ -96,29 +120,16 @@ public final class ContentServer {
 
     private static String parseHost(String hostPort) {
         String hp = hostPort.contains("/") ? hostPort.substring(0, hostPort.indexOf('/')) : hostPort;
-        int i = hp.indexOf(':');
-        return (i >= 0) ? hp.substring(0, i) : hp;
+        int i = hp.indexOf(':'); return (i >= 0) ? hp.substring(0, i) : hp;
     }
-
     private static int parsePort(String hostPort, int def) {
         String hp = hostPort.contains("/") ? hostPort.substring(0, hostPort.indexOf('/')) : hostPort;
-        int i = hp.indexOf(':');
-        if (i >= 0) { try { return Integer.parseInt(hp.substring(i + 1)); } catch (Exception ignored) {} }
+        int i = hp.indexOf(':'); if (i >= 0) { try { return Integer.parseInt(hp.substring(i + 1)); } catch (Exception ignored) {} }
         return def;
     }
-
     private static String parsePath(String hostPort, String def) {
-        int i = hostPort.indexOf('/');
-        return (i >= 0) ? hostPort.substring(i) : def;
+        int i = hostPort.indexOf('/'); return (i >= 0) ? hostPort.substring(i) : def;
     }
-
-    private static String firstLine(String http) {
-        int i = http.indexOf("\r\n");
-        return (i >= 0) ? http.substring(0, i) : http;
-    }
-
-    private static String bodyOf(String resp) {
-        int i = resp.indexOf("\r\n\r\n");
-        return (i >= 0) ? resp.substring(i + 4) : "";
-    }
+    private static String firstLine(String http) { int i = http.indexOf("\r\n"); return (i >= 0) ? http.substring(0, i) : http; }
+    private static String bodyOf(String resp) { int i = resp.indexOf("\r\n\r\n"); return (i >= 0) ? resp.substring(i + 4) : ""; }
 }

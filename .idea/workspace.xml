@@ -5,15 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="022bfaed-8cc2-4a0e-a84e-a19f5ce36733" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/GetClient.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/LamportClock.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/util/AtomicLamportClock.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/AggregationServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ContentServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/FileSnapshotStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/persistance/FileSnapshotStore.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/GetClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/SnapshotStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/SnapshotStore.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/station1.txt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/weather.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/temp/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/weather.txt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,12 +29,15 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
   <component name="ProjectCodeStyleSettingsMigration">
     <option name="version" value="2" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 2
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
   <component name="ProjectId" id="32XZgWmuyUWbEgJP383k4YXtjIo" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
@@ -48,6 +49,7 @@
     "Application.AggregationServer.executor": "Run",
     "Application.App.executor": "Run",
     "Application.ContentServer.executor": "Run",
+    "Application.GetClient.executor": "Run",
     "Maven. [org.apache.maven.plugins:maven-archetype-plugin:RELEASE:generate].executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -64,6 +66,7 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\AggregationServerConsistencyLamportClocksDistributedSystems\src\main\resources" />
       <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\edu.assignment2\src\main\resources" />
       <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\edu.assignment2\src\main\java\org\example" />
       <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\edu.assignment2\src" />

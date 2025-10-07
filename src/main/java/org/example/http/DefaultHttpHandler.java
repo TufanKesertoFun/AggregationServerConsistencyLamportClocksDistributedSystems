@@ -52,6 +52,7 @@ public class DefaultHttpHandler implements HttpHandler {
     @Override
     public void writeEmpty(OutputStream out, int statusCode,
                            LamportClock clock, String nodeId) throws IOException {
+        // IMPORTANT: tick on every send (local event)
         clock.tick();
         String res =
                 "HTTP/1.1 " + statusCode + " " + reason(statusCode) + "\r\n" +
@@ -66,6 +67,7 @@ public class DefaultHttpHandler implements HttpHandler {
     public void writeJson(OutputStream out, int statusCode, String jsonBody,
                           LamportClock clock, String nodeId) throws IOException {
         byte[] body = jsonBody.getBytes(StandardCharsets.UTF_8);
+        // IMPORTANT: tick on every send (local event)
         clock.tick();
         String res =
                 "HTTP/1.1 " + statusCode + " " + reason(statusCode) + "\r\n" +

@@ -17,6 +17,10 @@ import java.util.Comparator;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
+// 🟩 Added imports
+import org.example.interfaces.LamportSynchronizer;
+import org.example.util.SimpleLamportSynchronizer;
+
 public final class AggregationServer {
 
     // ---- state served to clients (volatile for cross-thread visibility) ----
@@ -38,6 +42,9 @@ public final class AggregationServer {
 
     // HTTP helper (centralized response writing + reason + status constants)
     private static final HttpHandler HTTP = new DefaultHttpHandler();
+
+    // 🟩 New synchronizer instance for ordering consistency
+    private static final LamportSynchronizer SYNC = new SimpleLamportSynchronizer();
 
     // -----------------------------------------------------------------------
     // Lamport-ordered apply queue
@@ -72,6 +79,10 @@ public final class AggregationServer {
                     System.out.println("[Lamport-Apply] ts=" + u.lamportTs +
                             " fromNode=" + (u.fromNode == null ? "?" : u.fromNode) +
                             " seq=" + u.seq + " -> applied & snapshotted");
+
+                    // 🟩 Notify synchronizer that this Lamport has been applied
+                    SYNC.onPutApplied(u.lamportTs);
+
                 } catch (Exception e) {
                     System.err.println("Apply failed: " + e.getMessage());
                 }
@@ -101,93 +112,147 @@ public final class AggregationServer {
         }
     }
 
+    /* =========================== refactored handle =========================== */
+
     private static void handle(Socket s) {
         try (s; InputStream in = s.getInputStream(); OutputStream out = s.getOutputStream()) {
 
-            String[] headerLines = readHeaderLines(in);
-            if (headerLines.length == 0) {
-                HTTP.writeEmpty(out, HttpHandler.BAD_REQUEST, CLOCK, NODE_ID);
-                return;
-            }
+            // 1) Read headers or 400
+            String[] headerLines = readOrRejectHeaders(in, out);
+            if (headerLines == null) return;
 
-            // --- Lamport: update from requester (if present) ---
+            // 2) Update Lamport clock if header present (logs included)
             long remoteLamport = parseLamportFromHeaders(headerLines);
-            if (remoteLamport > 0) {
-                CLOCK.update(remoteLamport);
+            maybeUpdateLamport(remoteLamport);
 
-                System.out.println("[Lamport] AggregationServer received request");
-                System.out.println("          Remote Clock: " + remoteLamport);
-                System.out.println("          Updated Local Clock: " + CLOCK.get());
-            }
-            // ---------------------------------------------------
-
-            String requestLine = headerLines[0];
-            String[] parts = requestLine.split(" ");
-            if (parts.length < 2) {
-                HTTP.writeEmpty(out, HttpHandler.BAD_REQUEST, CLOCK, NODE_ID);
-                return;
-            }
+            // 3) Parse request line or 400
+            String[] parts = parseRequestLineOrReject(headerLines, out);
+            if (parts == null) return;
 
             String method = parts[0];
-            String path = parts[1];
+            String path   = parts[1];
             int contentLength = contentLengthFrom(headerLines);
 
-            if ("PUT".equals(method) && "/weather.json".equals(path)) {
-                if (contentLength <= 0) {
-                    HTTP.writeEmpty(out, HttpHandler.NO_CONTENT, CLOCK, NODE_ID);
-                    return;
-                }
-
-                byte[] body = readBody(in, contentLength);
-                String json = new String(body, StandardCharsets.UTF_8);
-
-                try {
-                    validateJsonOrThrow(json);
-                } catch (Exception e) {
-                    HTTP.writeJson(out, HttpHandler.INTERNAL_SERVER_ERROR,
-                            "{\"error\":\"invalid JSON or missing id\"}", CLOCK, NODE_ID);
-                    return;
-                }
-
-                String fromNode = parseHeaderValue(headerLines, "X-Lamport-Node");
-                long orderTs = (remoteLamport > 0) ? remoteLamport : CLOCK.get();
-                long seq = ARRIVAL_SEQ.incrementAndGet();
-                synchronized (APPLY_Q) {
-                    APPLY_Q.add(new Update(orderTs, fromNode, json, seq));
-                    APPLY_Q.notifyAll();
-                }
-
-                boolean first = (lastPayload == null || lastPayload.isBlank());
-                if (first) {
-                    HTTP.writeEmpty(out, HttpHandler.CREATED, CLOCK, NODE_ID);
-                } else {
-                    HTTP.writeEmpty(out, HttpHandler.OK, CLOCK, NODE_ID);
-                }
+            // 4) Route
+            if (isPutWeather(method, path)) {
+                handlePutWeather(in, out, headerLines, remoteLamport, contentLength);
+                return;
+            }
+            if (isGetWeather(method, path)) {
+                handleGetWeather(out);
                 return;
             }
 
-            if ("GET".equals(method) && "/weather.json".equals(path)) {
-                if (lastPayload == null || lastPayload.isBlank()) {
-                    HTTP.writeJson(out, HttpHandler.NOT_FOUND,
-                            "{\"error\":\"no weather data available\"}", CLOCK, NODE_ID);
-                } else {
-                    long now = System.currentTimeMillis();
-                    if (EXPIRY.isExpired(lastAppliedAt, now)) {
-                        long age = now - lastAppliedAt;
-                        System.out.println("[TTL] Data expired: ageMs=" + age + " > " + EXPIRY.ttlMs());
-                        HTTP.writeJson(out, HttpHandler.NOT_FOUND,
-                                "{\"error\":\"data expired\"}", CLOCK, NODE_ID);
-                    } else {
-                        HTTP.writeJson(out, HttpHandler.OK, lastPayload, CLOCK, NODE_ID);
-                    }
-                }
-                return;
-            }
-
+            // 5) Unknown → 400
             HTTP.writeEmpty(out, HttpHandler.BAD_REQUEST, CLOCK, NODE_ID);
 
         } catch (Exception ignore) {
             // keep server alive
+        }
+    }
+
+    /* ---------------------- route helpers (no logic change) ---------------------- */
+
+    private static String[] readOrRejectHeaders(InputStream in, OutputStream out) throws IOException {
+        String[] headerLines = readHeaderLines(in);
+        if (headerLines.length == 0) {
+            HTTP.writeEmpty(out, HttpHandler.BAD_REQUEST, CLOCK, NODE_ID);
+            return null;
+        }
+        return headerLines;
+    }
+
+    private static void maybeUpdateLamport(long remoteLamport) {
+        if (remoteLamport > 0) {
+            CLOCK.update(remoteLamport);
+            System.out.println("[Lamport] AggregationServer received request");
+            System.out.println("          Remote Clock: " + remoteLamport);
+            System.out.println("          Updated Local Clock: " + CLOCK.get());
+        }
+    }
+
+    private static String[] parseRequestLineOrReject(String[] headerLines, OutputStream out) throws IOException {
+        String requestLine = headerLines[0];
+        String[] parts = requestLine.split(" ");
+        if (parts.length < 2) {
+            HTTP.writeEmpty(out, HttpHandler.BAD_REQUEST, CLOCK, NODE_ID);
+            return null;
+        }
+        return parts;
+    }
+
+    private static boolean isPutWeather(String method, String path) {
+        return "PUT".equals(method) && "/weather.json".equals(path);
+    }
+
+    private static boolean isGetWeather(String method, String path) {
+        return "GET".equals(method) && "/weather.json".equals(path);
+    }
+
+    private static void handlePutWeather(InputStream in,
+                                         OutputStream out,
+                                         String[] headerLines,
+                                         long remoteLamport,
+                                         int contentLength) throws IOException {
+        if (contentLength <= 0) {
+            HTTP.writeEmpty(out, HttpHandler.NO_CONTENT, CLOCK, NODE_ID);
+            return;
+        }
+
+        byte[] body = readBody(in, contentLength);
+        String json = new String(body, StandardCharsets.UTF_8);
+
+        try {
+            validateJsonOrThrow(json);
+        } catch (Exception e) {
+            HTTP.writeJson(out, HttpHandler.INTERNAL_SERVER_ERROR,
+                    "{\"error\":\"invalid JSON or missing id\"}", CLOCK, NODE_ID);
+            return;
+        }
+
+        String fromNode = parseHeaderValue(headerLines, "X-Lamport-Node");
+        long orderTs = (remoteLamport > 0) ? remoteLamport : CLOCK.get();
+        enqueueUpdate(orderTs, fromNode, json);
+
+        boolean first = (lastPayload == null || lastPayload.isBlank());
+        if (first) {
+            HTTP.writeEmpty(out, HttpHandler.CREATED, CLOCK, NODE_ID);
+        } else {
+            HTTP.writeEmpty(out, HttpHandler.OK, CLOCK, NODE_ID);
+        }
+    }
+
+    private static void enqueueUpdate(long orderTs, String fromNode, String json) {
+        long seq = ARRIVAL_SEQ.incrementAndGet();
+        synchronized (APPLY_Q) {
+            APPLY_Q.add(new Update(orderTs, fromNode, json, seq));
+            APPLY_Q.notifyAll();
+        }
+    }
+
+    private static void handleGetWeather(OutputStream out) throws IOException {
+        // 🟩 Wait until all PUTs with Lamport <= current clock have been applied
+        long target = CLOCK.get();
+        boolean caughtUp = SYNC.awaitUpTo(target, 2000L);
+        if (!caughtUp) {
+            System.out.println("[Lamport] GET timed out waiting for <= " + target +
+                    " (lastApplied=" + SYNC.lastApplied() + ")");
+        }
+
+        if (lastPayload == null || lastPayload.isBlank()) {
+            HTTP.writeJson(out, HttpHandler.NOT_FOUND,
+                    "{\"error\":\"no weather data available\"}", CLOCK, NODE_ID);
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (EXPIRY.isExpired(lastAppliedAt, now)) {
+            long age = now - lastAppliedAt;
+            System.out.println("[TTL] Data expired: ageMs=" + age + " > " + EXPIRY.ttlMs());
+            HTTP.writeJson(out, HttpHandler.NOT_FOUND,
+                    "{\"error\":\"data expired\"}", CLOCK, NODE_ID);
+        } else {
+            HTTP.writeJson(out, HttpHandler.OK, lastPayload, CLOCK, NODE_ID);
         }
     }
 

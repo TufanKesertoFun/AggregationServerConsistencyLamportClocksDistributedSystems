@@ -1,47 +1,121 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
-
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.example</groupId>
   <artifactId>edu.assignment2</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
-
   <name>edu.assignment2</name>
 
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <junit.jupiter.version>5.10.2</junit.jupiter.version>
+    <surefire.plugin.version>3.2.5</surefire.plugin.version>
+    <failsafe.plugin.version>3.2.5</failsafe.plugin.version>
+    <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
+
+    <!-- 👇 define empty defaults so IDEs don’t flag them -->
+    <argLine></argLine>
+    <failsafeArgLine></failsafeArgLine>
   </properties>
 
   <dependencies>
-    <!-- Gson for JSON parsing/writing -->
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.10.1</version>
     </dependency>
 
-    <!-- JUnit 5 for testing -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>5.9.3</version>
+      <version>${junit.jupiter.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
 
   <build>
     <plugins>
-      <!-- Use Surefire so JUnit 5 tests run -->
+      <!-- JaCoCo: prepare agents for unit + IT, and generate report -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.plugin.version}</version>
+        <executions>
+          <!-- sets ${argLine} for surefire -->
+          <execution>
+            <id>prepare-agent-unit</id>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+          <!-- sets ${failsafeArgLine} for failsafe -->
+          <execution>
+            <id>prepare-agent-it</id>
+            <goals><goal>prepare-agent</goal></goals>
+            <configuration>
+              <propertyName>failsafeArgLine</propertyName>
+            </configuration>
+          </execution>
+          <!-- HTML report after all tests -->
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals><goal>report</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Unit tests -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.1.2</version>
+        <version>${surefire.plugin.version}</version>
+        <configuration>
+          <useSystemClassLoader>true</useSystemClassLoader>
+          <argLine>${argLine}</argLine>
+          <systemPropertyVariables>
+            <!-- pass agent string to tests so they can inject it into child JVMs -->
+            <jacocoAgent>${argLine}</jacocoAgent>
+          </systemPropertyVariables>
+          <includes>
+            <include>**/*Test.java</include>
+          </includes>
+          <excludes>
+            <exclude>**/*IT.java</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+
+      <!-- Integration tests -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>${failsafe.plugin.version}</version>
+        <configuration>
+          <useSystemClassLoader>true</useSystemClassLoader>
+          <argLine>${failsafeArgLine}</argLine>
+          <systemPropertyVariables>
+            <jacocoAgent>${failsafeArgLine}</jacocoAgent>
+          </systemPropertyVariables>
+          <includes>
+            <include>**/*IT.java</include>
+          </includes>
+          <!-- Optional: auto re-run flaky ITs once -->
+          <rerunFailingTestsCount>1</rerunFailingTestsCount>
+          <trimStackTrace>false</trimStackTrace>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

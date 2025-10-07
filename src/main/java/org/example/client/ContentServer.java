@@ -30,48 +30,82 @@ public final class ContentServer {
             new org.example.util.SimpleRetryExecutor(4, 200, 1600, 100);
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 2) {
-            System.out.println("Usage:\n  ContentServer <host:port | "
-                    + "http://host:port[/path]> <filePath>");
-            return;
-        }
+        if (!validateArgs(args)) return;
 
+        // inputs
         String urlOrHostPort = args[0];
         String filePath = args[1];
 
+        // parse target
         String hostPort = urlOrHostPort.replaceFirst("^https?://", "");
         String host = parseHost(hostPort);
         int port = parsePort(hostPort, 4567);
-        String path = parsePath(hostPort, "/weather.json");
-        if (!path.startsWith("/"))
-            path = "/" + path;
+        String path = ensureLeadingSlash(parsePath(hostPort, "/weather.json"));
 
+        // body
         byte[] bodyBytes = buildBody(Path.of(filePath));
         int contentLength = bodyBytes.length;
 
-        // --- Lamport: tick before sending, include headers ---
+        // lamport + headers
         CLOCK.tick();
+        Map<String, String> extra = buildExtraHeaders();
+        logLamportSend();
+
+        // request
+        String headers = HTTP.buildRequest("PUT", path, host, port, extra, contentLength);
+        logRequestPreview(headers, contentLength);
+
+        // send with retry
+        String resp = sendWithRetry(host, port, headers, bodyBytes);
+
+        // show headers
+        showResponseHeaders(resp);
+
+        // lamport update
+        updateLamportFromResponse(resp);
+
+        // print final response
+        printServerResponse(resp);
+    }
+
+    /* ---------------- extracted private helpers (no logic change) ---------------- */
+
+    private static boolean validateArgs(String[] args) {
+        if (args.length < 2) {
+            System.out.println("Usage:\n  ContentServer <host:port | "
+                    + "http://host:port[/path]> <filePath>");
+            return false;
+        }
+        return true;
+    }
+
+    private static String ensureLeadingSlash(String p) {
+        return p.startsWith("/") ? p : "/" + p;
+    }
+
+    private static Map<String, String> buildExtraHeaders() {
         Map<String, String> extra = new LinkedHashMap<>();
         extra.put("User-Agent", "ContentServer/1.0");
         extra.put("X-Lamport-Node", NODE_ID);
         extra.put("X-Lamport-Clock", String.valueOf(CLOCK.get()));
         extra.put("Content-Type", "application/json; charset=utf-8");
+        return extra;
+    }
 
-        // Human-readable Lamport send log (no logic change)
+    private static void logLamportSend() {
         System.out.println("[Lamport] ContentServer sending request");
         System.out.println("          Node ID: " + NODE_ID);
         System.out.println("          Current Clock: " + CLOCK.get());
+    }
 
-        String headers =
-                HTTP.buildRequest("PUT", path, host, port, extra, contentLength);
-
+    private static void logRequestPreview(String headers, int contentLength) {
         System.out.println("Request sent:");
         System.out.print(headers.replace("\r\n", "\n"));
-        System.out.println(
-                contentLength == 0 ? "(empty body)" : "(body bytes): " + contentLength);
+        System.out.println(contentLength == 0 ? "(empty body)" : "(body bytes): " + contentLength);
+    }
 
-        // --- Socket I/O wrapped in retry; also retry on HTTP 503/500/429 (respect Retry-After) ---
-        String resp = RETRY.execute(() -> {
+    private static String sendWithRetry(String host, int port, String headers, byte[] bodyBytes) throws Exception {
+        return RETRY.execute(() -> {
             try (Socket s = new Socket(host, port);
                  OutputStream out = s.getOutputStream();
                  InputStream in = s.getInputStream()) {
@@ -93,17 +127,18 @@ public final class ContentServer {
                 return r;
             }
         });
-        // ------------------------------------------------------------------------------------------
+    }
 
-        // SHOW response headers (so you can see server's Lamport clock)
+    private static void showResponseHeaders(String resp) {
         int hdrEnd = resp.indexOf("\r\n\r\n");
         if (hdrEnd > 0) {
             System.out.println("\n--- Response headers start ---");
             System.out.println(resp.substring(0, hdrEnd));
             System.out.println("--- Response headers end ---");
         }
+    }
 
-        // Lamport: update from server’s clock (if present) + readable log
+    private static void updateLamportFromResponse(String resp) {
         String respClock = headerValue(resp, "X-Lamport-Clock");
         if (respClock != null) {
             try {
@@ -112,10 +147,11 @@ public final class ContentServer {
                 System.out.println("[Lamport] ContentServer received response");
                 System.out.println("          Server Clock: " + remote);
                 System.out.println("          Updated Local Clock: " + after);
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) { }
         }
+    }
 
+    private static void printServerResponse(String resp) {
         String statusLine = firstLine(resp);
         String body = bodyOf(resp);
 
@@ -125,7 +161,7 @@ public final class ContentServer {
             System.out.println(body);
     }
 
-    /* ---------------- helpers ---------------- */
+    /* ---------------- existing helpers (unchanged) ---------------- */
     private static String headerValue(String http, String name) {
         int headEnd = http.indexOf("\r\n\r\n");
         String headers = (headEnd >= 0) ? http.substring(0, headEnd) : http;

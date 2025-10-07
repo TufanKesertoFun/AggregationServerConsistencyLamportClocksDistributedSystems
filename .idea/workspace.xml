@@ -5,14 +5,33 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="022bfaed-8cc2-4a0e-a84e-a19f5ce36733" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/ExpiryPolicy.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/RetryExecutor.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/util/FixedTtlPolicy.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleRetryExecutor.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ApplicationDesignDocument.pdf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Changes.pdf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Test_Guide.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/LamportSynchronizer.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleLamportSynchronizer.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/run-all-tests.ps1" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/AggregationSystemIntegrationTests.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/AtomicLamportClockTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ClientHelpersTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ClientStubsIntegrationTests.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ContentServerInJvmIT.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/DefaultHttpHandlerTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/FileSnapshotStoreTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/FixedTtlPolicyTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/GetClientInJvmIT.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/NetTestUtils.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/SimpleLamportSynchronizerTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/SimpleRetryExecutorTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/WeatherDataExpiryIntegrationTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/http/DefaultHttpHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/http/DefaultHttpHandler.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/weatherA.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/weatherA.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/weatherB.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/weatherB.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,6 +49,9 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="KubernetesApiProvider"><![CDATA[{
+  "isMigrated": true
+}]]></component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
@@ -56,17 +78,22 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "rescue-b9d5cae",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/tufan/OneDrive/Desktop/Distributed-Systems-assignment-2",
+    "last_opened_file_path": "C:/Users/tufan/OneDrive/Desktop/uniofadelaide/DistributedSystems/AggregationServerConsistencyLamportClocksDistributedSystems",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "reference.settings.ide.settings.uml",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\AggregationServerConsistencyLamportClocksDistributedSystems" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\AggregationServerConsistencyLamportClocksDistributedSystems" />
       <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\AggregationServerConsistencyLamportClocksDistributedSystems\src\main\resources" />
       <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\edu.assignment2\src\main\resources" />
       <recent name="C:\Users\tufan\OneDrive\Desktop\uniofadelaide\DistributedSystems\edu.assignment2\src\main\java\org\example" />
@@ -82,6 +109,12 @@
       <option name="presentableId" value="Default" />
       <updated>1757568990628</updated>
       <workItem from="1757568991706" duration="19434000" />
+      <workItem from="1759706337133" duration="7840000" />
+      <workItem from="1759737613922" duration="963000" />
+      <workItem from="1759738883306" duration="120000" />
+      <workItem from="1759847234674" duration="6955000" />
+      <workItem from="1759854933931" duration="1005000" />
+      <workItem from="1759855972802" duration="3872000" />
     </task>
     <servers />
   </component>
@@ -98,5 +131,9 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>

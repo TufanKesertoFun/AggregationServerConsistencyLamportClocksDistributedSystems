@@ -21,6 +21,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.example.interfaces.LamportSynchronizer;
 import org.example.util.SimpleLamportSynchronizer;
 
+/**
+ * AggregationServer accepts PUTs of weather data and serves it via GET.
+ * <p>
+ * <b>Design notes (SonarQube):</b>
+ * <ul>
+ *   <li>Lamport clocks are used for causal ordering. Requests carry X-Lamport-Clock; server updates local clock and applies PUTs via a Lamport-ordered queue.</li>
+ *   <li>State exposure uses {@code volatile} fields for cross-thread visibility without changing control flow.</li>
+ *   <li>A TTL policy guards freshness; persistence is handled via a simple snapshot store.</li>
+ *   <li>Error handling avoids crashing the server—exceptions are logged and the loop continues.</li>
+ * </ul>
+ */
 public final class AggregationServer {
 
     // ---- state served to clients (volatile for cross-thread visibility) ----
@@ -31,6 +42,7 @@ public final class AggregationServer {
             new org.example.util.FixedTtlPolicy(30_000L);
     private static volatile long lastAppliedAt = 0L;
 
+    // Simple file-based persistence of last applied snapshot
     private static final SnapshotStore STORE =
             new FileSnapshotStore(java.nio.file.Paths.get("src", "main", "resources", "temp"), "weather");
 
@@ -43,16 +55,19 @@ public final class AggregationServer {
     // HTTP helper (centralized response writing + reason + status constants)
     private static final HttpHandler HTTP = new DefaultHttpHandler();
 
-    // 🟩 New synchronizer instance for ordering consistency
+    // 🟩 New synchronizer instance for ordering consistency (await/notify semantics for GET catch-up)
     private static final LamportSynchronizer SYNC = new SimpleLamportSynchronizer();
 
     // -----------------------------------------------------------------------
     // Lamport-ordered apply queue
     // -----------------------------------------------------------------------
+    /** Immutable update payload; ordering key is (lamportTs, fromNode, seq). */
     private record Update(long lamportTs, String fromNode, String json, long seq) {}
 
+    // Monotonic arrival sequence to break ties stably
     private static final AtomicLong ARRIVAL_SEQ = new AtomicLong(0);
 
+    // Priority queue: first by Lamport ts, then node id (stable), then arrival sequence
     private static final PriorityQueue<Update> APPLY_Q = new PriorityQueue<>(
             Comparator
                     .comparingLong((Update u) -> u.lamportTs)
@@ -60,6 +75,7 @@ public final class AggregationServer {
                     .thenComparingLong(u -> u.seq)
     );
 
+    // Single applier thread: ensures in-order, single-threaded state mutation and snapshotting
     static {
         Thread applier = new Thread(() -> {
             while (true) {
@@ -80,10 +96,11 @@ public final class AggregationServer {
                             " fromNode=" + (u.fromNode == null ? "?" : u.fromNode) +
                             " seq=" + u.seq + " -> applied & snapshotted");
 
-                    // 🟩 Notify synchronizer that this Lamport has been applied
+                    // 🟩 Notify synchronizer that this Lamport has been applied (unblocks GET waiters)
                     SYNC.onPutApplied(u.lamportTs);
 
                 } catch (Exception e) {
+                    // Sonar: keep server alive; failed apply is logged for diagnosis
                     System.err.println("Apply failed: " + e.getMessage());
                 }
             }
@@ -93,9 +110,13 @@ public final class AggregationServer {
     }
     // -----------------------------------------------------------------------
 
+    /**
+     * Starts the server on the given port (default 4567) and processes connections in a loop.
+     */
     public static void main(String[] args) throws Exception {
         int port = (args.length > 0) ? Integer.parseInt(args[0]) : 4567;
 
+        // Attempt to restore the last snapshot on startup (treated as fresh)
         String snap = STORE.load();
         if (snap != null && !snap.isBlank()) {
             lastPayload = snap;
@@ -114,6 +135,10 @@ public final class AggregationServer {
 
     /* =========================== refactored handle =========================== */
 
+    /**
+     * Processes a single connection end-to-end (read headers, route, respond).
+     * <p>Sonar: exceptions are caught at the callsite to keep server responsive.</p>
+     */
     private static void handle(Socket s) {
         try (s; InputStream in = s.getInputStream(); OutputStream out = s.getOutputStream()) {
 
@@ -153,6 +178,7 @@ public final class AggregationServer {
 
     /* ---------------------- route helpers (no logic change) ---------------------- */
 
+    /** Reads the HTTP headers section; writes 400 if empty and returns null. */
     private static String[] readOrRejectHeaders(InputStream in, OutputStream out) throws IOException {
         String[] headerLines = readHeaderLines(in);
         if (headerLines.length == 0) {
@@ -162,6 +188,7 @@ public final class AggregationServer {
         return headerLines;
     }
 
+    /** Updates the local Lamport clock based on the client's clock, if provided. */
     private static void maybeUpdateLamport(long remoteLamport) {
         if (remoteLamport > 0) {
             CLOCK.update(remoteLamport);
@@ -171,6 +198,7 @@ public final class AggregationServer {
         }
     }
 
+    /** Parses the request line; if malformed, sends 400 and returns null. */
     private static String[] parseRequestLineOrReject(String[] headerLines, OutputStream out) throws IOException {
         String requestLine = headerLines[0];
         String[] parts = requestLine.split(" ");
@@ -181,14 +209,24 @@ public final class AggregationServer {
         return parts;
     }
 
+    /** Route predicate: PUT /weather.json */
     private static boolean isPutWeather(String method, String path) {
         return "PUT".equals(method) && "/weather.json".equals(path);
     }
 
+    /** Route predicate: GET /weather.json */
     private static boolean isGetWeather(String method, String path) {
         return "GET".equals(method) && "/weather.json".equals(path);
     }
 
+    /**
+     * Handles a PUT /weather.json:
+     * <ul>
+     *   <li>Validates content length and JSON (must include non-blank {@code id}).</li>
+     *   <li>Enqueues update for Lamport-ordered application (non-blocking).</li>
+     *   <li>Responds 201 for first write, else 200.</li>
+     * </ul>
+     */
     private static void handlePutWeather(InputStream in,
                                          OutputStream out,
                                          String[] headerLines,
@@ -222,6 +260,7 @@ public final class AggregationServer {
         }
     }
 
+    /** Adds a pending update to the Lamport-ordered queue and signals the applier thread. */
     private static void enqueueUpdate(long orderTs, String fromNode, String json) {
         long seq = ARRIVAL_SEQ.incrementAndGet();
         synchronized (APPLY_Q) {
@@ -230,6 +269,14 @@ public final class AggregationServer {
         }
     }
 
+    /**
+     * Handles GET /weather.json:
+     * <ul>
+     *   <li>Waits (up to ~2s) for all PUTs with Lamport ≤ current clock to apply.</li>
+     *   <li>Returns 404 if no data or data expired per TTL.</li>
+     *   <li>Otherwise returns 200 with the last payload.</li>
+     * </ul>
+     */
     private static void handleGetWeather(OutputStream out) throws IOException {
         // 🟩 Wait until all PUTs with Lamport <= current clock have been applied
         long target = CLOCK.get();
@@ -257,6 +304,7 @@ public final class AggregationServer {
     }
 
     /* -------- tiny JSON validator for PUT -------- */
+    /** Validates the JSON payload and ensures a non-blank {@code id} field exists. */
     private static void validateJsonOrThrow(String json) throws Exception {
         var element = JsonParser.parseString(json);
         if (!element.isJsonObject()) {
@@ -276,6 +324,11 @@ public final class AggregationServer {
     }
 
     /* -------------------- helpers -------------------- */
+
+    /**
+     * Reads header bytes up to CRLFCRLF. Returns lines split by CRLF.
+     * <p>Sonar: manual parser is acceptable within assignment scope; sizes are small.</p>
+     */
     private static String[] readHeaderLines(InputStream in) throws IOException {
         ByteArrayOutputStream buf = new ByteArrayOutputStream();
         int state = 0;
@@ -304,6 +357,7 @@ public final class AggregationServer {
         }
     }
 
+    /** Extracts Content-Length from headers (defaults to 0 if absent or invalid). */
     private static int contentLengthFrom(String[] headerLines) {
         for (String line : headerLines) {
             if (line == null) continue;
@@ -317,10 +371,12 @@ public final class AggregationServer {
         return 0;
     }
 
+    /** Reads exactly {@code len} bytes for the body. */
     private static byte[] readBody(InputStream in, int len) throws IOException {
         return in.readNBytes(len);
     }
 
+    /** Parses X-Lamport-Clock header value; returns 0 if not present/invalid. */
     private static long parseLamportFromHeaders(String[] headerLines) {
         for (String line : headerLines) {
             if (line == null) continue;
@@ -337,6 +393,7 @@ public final class AggregationServer {
         return 0L;
     }
 
+    /** Finds a specific header value by name (case-insensitive), or {@code null}. */
     private static String parseHeaderValue(String[] headerLines, String wantedName) {
         for (String line : headerLines) {
             if (line == null) continue;

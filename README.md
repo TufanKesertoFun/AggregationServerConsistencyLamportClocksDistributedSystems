@@ -5,7 +5,7 @@
 ---
 
 ## 🧭 Overview
-
+In this project 87 percent code coverage is achieved. It can be seen target/site/jacoco/index.html
 This project implements a **distributed weather aggregation system** that ensures **causal consistency** using **Lamport logical clocks**.  
 The system is composed of three main components:
 

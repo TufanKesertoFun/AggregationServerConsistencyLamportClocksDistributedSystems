@@ -5,33 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="022bfaed-8cc2-4a0e-a84e-a19f5ce36733" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/ApplicationDesignDocument.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Changes.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Test_Guide.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/interfaces/LamportSynchronizer.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleLamportSynchronizer.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/run-all-tests.ps1" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/AggregationSystemIntegrationTests.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/AtomicLamportClockTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ClientHelpersTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ClientStubsIntegrationTests.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ContentServerInJvmIT.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/DefaultHttpHandlerTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/FileSnapshotStoreTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/FixedTtlPolicyTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/GetClientInJvmIT.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/NetTestUtils.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/SimpleLamportSynchronizerTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/SimpleRetryExecutorTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/WeatherDataExpiryIntegrationTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ClientCoverageTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ServerCoverageTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/example/http/DefaultHttpHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/http/DefaultHttpHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/persistance/FileSnapshotStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/persistance/FileSnapshotStore.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/weatherA.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/weatherA.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/weatherB.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/weatherB.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/AtomicLamportClock.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/AtomicLamportClock.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/FixedTtlPolicy.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/FixedTtlPolicy.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleLamportSynchronizer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleLamportSynchronizer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleRetryExecutor.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleRetryExecutor.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,9 +34,9 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="KubernetesApiProvider"><![CDATA[{
-  "isMigrated": true
-}]]></component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
@@ -114,7 +99,10 @@
       <workItem from="1759738883306" duration="120000" />
       <workItem from="1759847234674" duration="6955000" />
       <workItem from="1759854933931" duration="1005000" />
-      <workItem from="1759855972802" duration="3872000" />
+      <workItem from="1759855972802" duration="4246000" />
+      <workItem from="1759860471338" duration="129000" />
+      <workItem from="1759860626432" duration="21000" />
+      <workItem from="1759860873441" duration="3204000" />
     </task>
     <servers />
   </component>

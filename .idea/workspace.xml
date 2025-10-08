@@ -5,18 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="022bfaed-8cc2-4a0e-a84e-a19f5ce36733" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ClientCoverageTest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/java/org/example/ServerCoverageTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/ContentServer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/client/GetClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/http/DefaultHttpHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/http/DefaultHttpHandler.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/persistance/FileSnapshotStore.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/persistance/FileSnapshotStore.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/server/AggregationServer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/AtomicLamportClock.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/AtomicLamportClock.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/FixedTtlPolicy.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/FixedTtlPolicy.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleLamportSynchronizer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleLamportSynchronizer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleRetryExecutor.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/SimpleRetryExecutor.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -102,7 +91,7 @@
       <workItem from="1759855972802" duration="4246000" />
       <workItem from="1759860471338" duration="129000" />
       <workItem from="1759860626432" duration="21000" />
-      <workItem from="1759860873441" duration="3204000" />
+      <workItem from="1759860873441" duration="3591000" />
     </task>
     <servers />
   </component>
